@@ -1,5 +1,5 @@
 {
-    "name": "workers",
+    "name": "news",
     "private": true,
     "version": "1.0.0",
     "description": "news recommendations with cloudflare workers and neo4j",

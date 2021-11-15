@@ -1,4 +1,4 @@
-name = "workers"
+name = "news"
 type = "webpack"
 
 account_id = ""

@@ -1,22 +1,12 @@
 import { Router } from 'itty-router'
 
-// Create a new router
 const router = Router()
 
-/*
-Our index route, a simple hello world to run a query against Neo4j and return result JSON.
-*/
-router.get('/', async (req, res) => {
-    console.log(JSON.stringify(req, undefined, 2))
-
+const neo4jRequestOptions = ({ statement, parameters }) => {
     var headers = new Headers()
     headers.append('Accept', 'application/json')
     headers.append('Content-Type', 'application/json')
     headers.append('Authorization', NEO4J_AUTH)
-
-    const statement = `MATCH (n) RETURN {count: COUNT(n)} AS data`
-
-    var parameters = { foo: 'bar' }
 
     var requestOptions = {
         method: 'POST',
@@ -25,8 +15,42 @@ router.get('/', async (req, res) => {
         redirect: 'follow',
     }
 
-    const response = await fetch(NEO4J_HTTP_URI, requestOptions)
+    return requestOptions
+}
 
+/*
+Our index route, a simple hello world to run a query against Neo4j and return result JSON.
+*/
+router.get('/', async (req, res) => {
+    console.log(JSON.stringify(req, undefined, 2))
+
+    const location = {
+        latitude: req.cf.latitude || 0.0,
+        longitude: req.cf.longitude || 0.0,
+    }
+
+    const statement = `
+    MATCH (g:Geo) 
+    WITH 
+      distance(g.location, point({latitude: toFloat($location.latitude), longitude: toFloat($location.longitude)})) AS dist, g
+    ORDER BY dist ASC LIMIT 10
+    MATCH (a:Article)-[:ABOUT_GEO]->(g) WITH DISTINCT a
+    RETURN 
+      a {.*, 
+        geos: [(a)-[:ABOUT_GEO]->(g:Geo) | g.name],  
+        topics: [(a)-[:HAS_TOPIC]->(t:Topic) | t.name], 
+        orgs: [(a)-[:ABOUT_ORGANIZATION]->(o:Organization) | o.name], 
+        people: [(a)-[:ABOUT_PERSON]->(p:Person) | p.name], 
+        photos: [(a)-[:HAS_PHOTO]->(p:Photo) | {caption: p.caption, url: p.url}]
+      } AS data 
+    ORDER BY a.published DESC`
+
+    var parameters = { location }
+
+    const response = await fetch(
+        NEO4J_HTTP_URI,
+        neo4jRequestOptions({ statement, parameters })
+    )
     const result = await response.json()
 
     return new Response(JSON.stringify(result), {
@@ -41,52 +65,34 @@ URL.
 
 Try visit /example/hello and see the response.
 */
-router.get('/example/:text', ({ params }) => {
-    // Decode text like "Hello%20world" into "Hello world"
-    let input = decodeURIComponent(params.text)
+router.get('/recommended/:id', async ({ params }) => {
+    let articleId = decodeURIComponent(params.id)
 
-    // Construct a buffer from our input
-    let buffer = Buffer.from(input, 'utf8')
+    // FIXME: don't use node id
+    // TODO: use content based recommendation query
+    const statement = `
+    MATCH (a:Article) WHERE id(a) = toInteger($article.id)
+    RETURN 
+      a {.*, 
+        geos: [(a)-[:ABOUT_GEO]->(g:Geo) | g.name],  
+        topics: [(a)-[:HAS_TOPIC]->(t:Topic) | t.name], 
+        orgs: [(a)-[:ABOUT_ORGANIZATION]->(o:Organization) | o.name], 
+        people: [(a)-[:ABOUT_PERSON]->(p:Person) | p.name], 
+        photos: [(a)-[:HAS_PHOTO]->(p:Photo) | {caption: p.caption, url: p.url}]
+      } AS data 
+    ORDER BY a.published DESC`
 
-    // Serialise the buffer into a base64 string
-    let base64 = buffer.toString('base64')
+    var parameters = { article: { id: articleId } }
 
-    // Return the HTML with the string to the client
-    return new Response(`<p>Base64 encoding: <code>${base64}</code></p>`, {
-        headers: {
-            'Content-Type': 'text/html',
-        },
-    })
-})
+    const response = await fetch(
+        NEO4J_HTTP_URI,
+        neo4jRequestOptions({ statement, parameters })
+    )
+    const result = await response.json()
 
-/*
-This shows a different HTTP method, a POST.
-
-Try send a POST request using curl or another tool.
-
-Try the below curl command to send JSON:
-
-$ curl -X POST <worker> -H "Content-Type: application/json" -d '{"abc": "def"}'
-*/
-router.post('/post', async request => {
-    // Create a base object with some fields.
-    let fields = {
-        asn: request.cf.asn,
-        colo: request.cf.colo,
-    }
-
-    // If the POST data is JSON then attach it to our response.
-    if (request.headers.get('Content-Type') === 'application/json') {
-        fields['json'] = await request.json()
-    }
-
-    // Serialise the JSON to a string.
-    const returnData = JSON.stringify(fields, null, 2)
-
-    return new Response(returnData, {
-        headers: {
-            'Content-Type': 'application/json',
-        },
+    return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { 'content-type': 'application/json;charset=UTF-8' },
     })
 })
 
@@ -99,7 +105,7 @@ Visit any page that doesn't exist (e.g. /foobar) to see it in action.
 router.all('*', () => new Response('404, not found!', { status: 404 }))
 
 /*
-This snippet ties our worker to the router we deifned above, all incoming requests
+This snippet ties our worker to the router we defined above, all incoming requests
 are passed to the router where your routes are called and the response is sent.
 */
 addEventListener('fetch', e => {
