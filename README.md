@@ -59,3 +59,7 @@ SET g.location = point({latitude: location.latitude, longitude: location.longitu
 ## GraphQL
 
 See the [/graphql](/graphql) directory for the GraphQL API code.
+
+## Cloudflare Workers
+
+See the [/workers](/workers) directory for location-aware news recommendations using Cloudflare Workers and Neo4j, deployed at `https://workers.graphstuff.workers.dev/`.
