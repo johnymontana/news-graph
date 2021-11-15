@@ -71,16 +71,20 @@ router.get('/recommended/:id', async ({ params }) => {
     // FIXME: don't use node id
     // TODO: use content based recommendation query
     const statement = `
-    MATCH (a:Article) WHERE id(a) = toInteger($article.id)
-    RETURN 
-      a {.*, 
-        geos: [(a)-[:ABOUT_GEO]->(g:Geo) | g.name],  
-        topics: [(a)-[:HAS_TOPIC]->(t:Topic) | t.name], 
-        orgs: [(a)-[:ABOUT_ORGANIZATION]->(o:Organization) | o.name], 
-        people: [(a)-[:ABOUT_PERSON]->(p:Person) | p.name], 
-        photos: [(a)-[:HAS_PHOTO]->(p:Photo) | {caption: p.caption, url: p.url}]
-      } AS data 
-    ORDER BY a.published DESC`
+    MATCH (this:Article) WHERE id(this) = toInteger($article.id)
+    MATCH (this)-[:HAS_TOPIC|:ABOUT_GEO|:ABOUT_ORGANIZATION|:ABOUT_PERSON]->(t)
+    WITH this, COLLECT(id(t)) AS t1
+    MATCH (a:Article)-[:HAS_TOPIC|:ABOUT_GEO|:ABOUT_ORGANIZATION|:ABOUT_PERSON]->(t) WHERE a <> this
+    WITH this, a, t1, COLLECT(id(t)) AS t2
+    WITH a, gds.alpha.similarity.jaccard(t1, t2) AS jaccard
+    ORDER BY jaccard DESC
+    RETURN a{.*,
+      geos: [(a)-[:ABOUT_GEO]->(g:Geo) | g.name],  
+      topics: [(a)-[:HAS_TOPIC]->(t:Topic) | t.name], 
+      orgs: [(a)-[:ABOUT_ORGANIZATION]->(o:Organization) | o.name], 
+      people: [(a)-[:ABOUT_PERSON]->(p:Person) | p.name], 
+      photos: [(a)-[:HAS_PHOTO]->(p:Photo) | {caption: p.caption, url: p.url}]  
+      } LIMIT 10`
 
     var parameters = { article: { id: articleId } }
 
