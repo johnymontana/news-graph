@@ -9,7 +9,7 @@ Working with New York Times article data in Neo4j and GraphQL.
 Data comes from the [New York Times API](https://developer.nytimes.com/). You'll need to [register for an API key](https://developer.nytimes.com/get-started), then, for example, to import the most popular articles of the last 7 days into Neo4j run this Cypher query:
 
 ```cypher
-WITH "<YOUR_NYT_API_KEY_HERE>"
+WITH "<YOUR_NYT_API_KEY_HERE>" AS key
 CALL apoc.load.json("https://api.nytimes.com/svc/mostpopular/v2/viewed/7.json?api-key=" + key) YIELD value
 UNWIND value.results AS article
   MERGE (a:Article {url: article.url})
