@@ -2,6 +2,8 @@
 
 This is a Next.js application that uses the "API Routes" feature of Next.js to create a GraphQL API of news articles using the [Neo4j GraphQL Library.](http://dev.neo4j.com/graphql)
 
+[Live Demo: news-graph.vercel.app/api/graphql](https://news-graph.vercel.app/api/graphql)
+
 ## Setup
 
 You'll need to set environment variables to connect to Neo4j. By default Next.js will read from `.env` files. For example:
