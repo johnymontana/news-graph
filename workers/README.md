@@ -4,4 +4,4 @@
 
 ### Resources
 
-* *Improving News Recommendations With Cloudflare Workers & Knowledge Graphs* ([Video](https://cloudflare.tv/event/4QAeaycw0oRp0x9IDb55Je), [Slides](](https://dev.neo4j.com/news-graph)))
+* *Improving News Recommendations With Cloudflare Workers & Knowledge Graphs* ([Video](https://cloudflare.tv/event/4QAeaycw0oRp0x9IDb55Je), [Slides](https://dev.neo4j.com/news-graph))
