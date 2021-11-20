@@ -1,6 +1,6 @@
-type Article {
+type Article @exclude(operations: [CREATE, UPDATE, DELETE]) {
   abstract: String
-  published: DateTime
+  published: Date
   title: String
   url: String!
   photo: Photo @relationship(type: "HAS_PHOTO", direction: OUT)
@@ -12,33 +12,33 @@ type Article {
   geos: [Geo] @relationship(type: "ABOUT_GEO", direction: OUT)
 }
 
-type Author {
+type Author @exclude(operations: [CREATE, UPDATE, DELETE]) {
   name: String!
   articles: [Article] @relationship(type: "BYLINE", direction: IN)
 }
 
-type Topic {
+type Topic @exclude(operations: [CREATE, UPDATE, DELETE]) {
   name: String!
   articles: [Article] @relationship(type: "HAS_TOPIC", direction: IN)
 }
 
-type Person {
+type Person @exclude(operations: [CREATE, UPDATE, DELETE]) {
   name: String!
   articles: [Article] @relationship(type: "ABOUT_PERSON", direction: IN)
 }
 
-type Organization {
+type Organization @exclude(operations: [CREATE, UPDATE, DELETE]) {
   name: String!
   articles: [Article] @relationship(type: "ABOUT_ORGANIZATION", direction: IN)
 }
 
-type Geo {
+type Geo @exclude(operations: [CREATE, UPDATE, DELETE]) {
   name: String!
   location: Point
   articles: [Article] @relationship(type: "ABOUT_GEO", direction: IN)
 }
 
-type Photo {
+type Photo @exclude(operations: [CREATE, UPDATE, DELETE]) {
   caption: String
   url: String!
   article: Article @relationship(type: "HAS_PHOTO", direction: IN)
@@ -51,72 +51,42 @@ extend type Topic {
     @cypher(statement: "RETURN SIZE( (this)<-[:HAS_TOPIC]-(:Article) )")
 }
 
+#extend type Article {
+#  similar(first: Int = 3): [Article]
+#    @cypher(
+#      statement: """
+#      MATCH (this)-[:HAS_TOPIC]->(t:Topic)
+#      WITH this, COLLECT(id(t)) AS t1
+#      MATCH (a:Article)-[:HAS_TOPIC]->(t:Topic) WHERE a <> this
+#      WITH this, a, t1, COLLECT(id(t)) AS t2
+#      WITH a, gds.alpha.similarity.jaccard(t1, t2) AS jaccard
+#      ORDER BY jaccard DESC
+#      RETURN a LIMIT toInteger($first)
+#      """
+#    )
+#}
 
-extend type Article {
-  similar(first: Int = 3): [Article]
-    @cypher(
-      statement: """
-      MATCH (this)-[:HAS_TOPIC]->(t:Topic)
-      WITH this, COLLECT(id(t)) AS t1
-      MATCH (a:Article)-[:HAS_TOPIC]->(t:Topic) WHERE a <> this
-      WITH this, a, t1, COLLECT(id(t)) AS t2
-      WITH a, gds.alpha.similarity.jaccard(t1, t2) AS jaccard
-      ORDER BY jaccard DESC
-      RETURN a LIMIT toInteger($first)
-      """
-    )
-}
+# type Mutation {
+#   createComment(userId: ID!, text: String!, articleId: ID!): Comment
+#     @cypher(
+#       statement: """
+#       MATCH (u:User {userId: $userId})
+#       MATCH (a:Article {articleId: $articleId})
+#       CREATE (c:Comment)<-[:WROTE_COMMENT]-(u)
+#       SET c.text      = $text,
+#           c.created   = timestamp(),
+#           c.commentId = randomUUD()
+#       RETURN c
+#       """
+#     )
+# }
 
-
-type Query {
-  articleSearch(searchString: String!): [Article]
-    @cypher(
-      statement: """
-      CALL db.index.fulltext.queryNodes('articleIndex', $searchString + '~')
-      YIELD node RETURN node
-      """
-    )
-}
-
-type Article {
-  articleId: ID!
-  title: String
-  abstract: String
-  topics: [Topic] @relationship(type: "HAS_TOPIC", direction: OUT)
-}
-
-type Query {
-  geoSearch(latitude: Float!, longitude: Float!): [Article]
-    @cypher(
-      statement: """
-      MATCH (g:Geo)<-[:ABOUT_GEO]-(a:Article)
-      WHERE distance(g, Point({latitude: $latitude, longitude: $longitude})) < 1000
-      RETURN a
-      """
-    )
-}
-
-type Mutation {
-  createComment(userId: ID!, text: String!, articleId: ID!): Comment
-    @cypher(
-      statement: """
-      MATCH (u:User {userId: $userId})
-      MATCH (a:Article {articleId: $articleId})
-      CREATE (c:Comment)<-[:WROTE_COMMENT]-(u)
-      SET c.text      = $text,
-          c.created   = timestamp(),
-          c.commentId = randomUUD()
-      RETURN c
-      """
-    )
-}
-
-type User {
+type User @exclude(operations: [CREATE, UPDATE, DELETE]) {
   userId: ID!
   userName: String!
 }
 
-type Comment {
+type Comment @exclude(operations: [CREATE, UPDATE, DELETE]) {
   commentId: ID! @id
   created: DateTime @timestamp
   text: String!
@@ -132,19 +102,35 @@ type Query {
       RETURN c
       """
     )
+  geoSearch(latitude: Float!, longitude: Float!): [Article]
+    @cypher(
+      statement: """
+      MATCH (g:Geo)<-[:ABOUT_GEO]-(a:Article)
+      WHERE distance(g, Point({latitude: $latitude, longitude: $longitude})) < 1000
+      RETURN a
+      """
+    )
+
+  articleSearch(searchString: String!): [Article]
+    @cypher(
+      statement: """
+      CALL db.index.fulltext.queryNodes('articleIndex', $searchString + '~')
+      YIELD node RETURN node
+      """
+    )
 }
 
 # extend type Comment @auth(rules: [{ where: { username: "$jwt.sub" } }])
 
-extend type Person {
-  description: String
-    @cypher(
-      statement: """
-      WITH this, apoc.static.get('gcpkey') AS gcpkey,
-        'https://kgsearch.googleapis.com/v1/entities:search?query=' AS baseURL
-      CALL apoc.load.json(baseURL + apoc.text.urlencode(this.name) + '&limit=1&key=' + gcpkey)
-      YIELD value
-      RETURN value.itemListElement[0].result.detailedDescription.articleBody
-      """
-    )
-}
+#  extend type Person {
+#    description: String
+#      @cypher(
+#        statement: """
+#        WITH this, apoc.static.get('gcpkey') AS gcpkey,
+#          'https://kgsearch.googleapis.com/v1/entities:search?query=' AS baseURL
+#        CALL apoc.load.json(baseURL + apoc.text.urlencode(this.name) + '&limit=1&key=' + gcpkey)
+#        YIELD value
+#        RETURN value.itemListElement[0].result.detailedDescription.articleBody
+#        """
+#      )
+#  }
