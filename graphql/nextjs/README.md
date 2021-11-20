@@ -16,7 +16,68 @@ NEO4J_PASSWORD=<YOUR NEO4J DB USER PASSWORD HERE>
 DEBUG=@neo4j/graphql:*
 ```
 
+## Queries
 
+Show the most recent articles and the geos, organizations, people, and topics those articles are about.
+
+```GraphQL
+{
+  articles(options: { sort: { published: DESC }, limit: 100 }) {
+    title
+    url
+    published
+    abstract
+    authors {
+      name
+    }
+    photo {
+      caption
+      url
+    }
+    geos {
+      name
+    }
+    organizations {
+      name
+    }
+    people {
+      name
+    }
+    topics {
+      name
+    }
+  }
+}
+```
+
+
+Find the most recent news related to geographic areas near San Mateo, CA, USA.
+
+```GraphQL
+{
+  geos(
+    where: {
+      location_LTE: {
+        distance: 100000
+        point: { latitude: 37.5630, longitude: -122.3255 }
+      }
+    }
+    options: { limit: 10 }
+  ) {
+    name
+    articles(options: { limit: 2, sort: { published: DESC } }) {
+      title
+      url
+      published
+      abstract
+      topics {
+        name
+      }
+    }
+  }
+}
+
+```
 
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
