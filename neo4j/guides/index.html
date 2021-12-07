@@ -1,0 +1,278 @@
+<style type="text/css" media="screen">
+/*
+.nodes-image {
+	margin:-100;
+}
+*/	
+@import url("//maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css");
+
+.imageblock .content img, .image img {max-width: 900px;max-height: 300px;}
+.deck h3, .deck h4 {display: block !important;margin-bottom:8px;margin-top:5px;}
+.listingblock {margin:8px;}
+.pull-bottom {position:relative;bottom:1em;}
+.admonitionblock td.icon [class^="fa icon-"]{font-size:2.5em;text-shadow:1px 1px 2px rgba(0,0,0,.5);cursor:default}
+.admonitionblock td.icon .icon-note:before{content:"\f05a";color:#19407c}
+.admonitionblock td.icon .icon-tip:before{content:"\f0eb";text-shadow:1px 1px 2px rgba(155,155,0,.8);color:#111}
+.admonitionblock td.icon .icon-warning:before{content:"\f071";color:#bf6900}
+.admonitionblock td.icon .icon-caution:before{content:"\f06d";color:#bf3400}
+.admonitionblock td.icon .icon-important:before{content:"\f06a";color:#bf0000}
+.admonitionblock.note.speaker { display:none; }
+</style>
+<style type="text/css" media="screen">
+/* #editor.maximize-editor .CodeMirror-code { font-size:24px; line-height:26px; } */
+</style>
+<article class="guide" ng-controller="AdLibDataController">
+  <carousel class="deck container-fluid">
+    <!--slide class="row-fluid">
+      <div class="col-sm-3">
+        <h3>News Graph</h3>
+        <p class="lead">Information</p>
+			<!dl>
+				
+				
+				
+				
+				
+			</dl>
+		</div>
+      <div class="col-sm-9">
+        <figure>
+          <img style="width:300px" src=""/>
+        </figure>
+      </div>
+    </slide-->
+    
+
+
+   <h4>News Graph</h4>
+   
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>News Graph</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>This guide explores importing and querying data about popular New York Times Articles.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Importing data with <code>apoc.load.json</code></p>
+</li>
+<li>
+<p>Querying with Cypher</p>
+</li>
+<li>
+<p>Exercise: Writing an article recommendation query</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Data from <a href="https://developer.nytimes.com/apis">NYTimes API</a></p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>LOAD JSON</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p><code>LOAD JSON</code> is a Cypher feature that allows us to load data into Neo4j from JSON files.</p>
+</div>
+<div class="paragraph">
+<p>It will parse a JSON file and yield an object that we can then manipulate using Cypher, typically describing the patterns we want to create in the graph. Let&#8217;s take a look at our news data:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL apoc.load.json("https://raw.githubusercontent.com/johnymontana/fullstack-graphql-neo4j-auradb-nextjs-vercel-workshop/main/data/news.json") YIELD value
+RETURN value<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Data Import</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>Let&#8217;s run this import script to load our news data, then we&#8217;ll see how to query it using Cypher.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL apoc.load.json("https://raw.githubusercontent.com/johnymontana/fullstack-graphql-neo4j-auradb-nextjs-vercel-workshop/main/data/news.json") YIELD value
+UNWIND value.results AS article
+  MERGE (a:Article {url: article.url})
+    SET a.title     = article.title,
+        a.abstract  = article.abstract,
+        a.published = datetime(article.published_date),
+        a.byline    = article.byline
+
+  FOREACH (desc IN article.des_facet |
+    MERGE (d:Topic {name: desc})
+    MERGE (a)-[:HAS_TOPIC]-&gt;(d)
+  )
+
+  FOREACH (per IN article.per_facet |
+    MERGE (p:Person {name: per})
+    MERGE (a)-[:ABOUT_PERSON]-&gt;(p)
+  )
+
+  FOREACH (org IN article.org_facet |
+    MERGE (o:Organization {name: org})
+    MERGE (a)-[:ABOUT_ORGANIZATION]-&gt;(o)
+  )
+
+  FOREACH (geo IN article.geo_facet |
+    MERGE (g:Geo {name: geo})
+    MERGE (a)-[:ABOUT_GEO]-&gt;(g)
+  )
+
+  MERGE (p:Photo {url: coalesce(article.media[0]["media-metadata"][2].url, "NA")})
+    SET p.caption = article.media[0].caption
+  MERGE (a)-[:HAS_PHOTO]-&gt;(p)
+
+  WITH a, split(replace(substring(article.byline, 3), " and ", ","), ",") AS authors
+  UNWIND authors AS author
+    MERGE (auth:Author {name: trim(author)})
+    MERGE (a)-[:BYLINE]-&gt;(auth)
+RETURN *<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Querying With Cypher: MATCH</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>The <code>MATCH</code> command allows us to search for graph patterns in the database using "ASCI-art" syntax. Here we define a simple graph pattern to search for all article nodes:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->MATCH (a:Article) RETURN a<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We can use ordering, sorting, and limiting in Cypher (pagination):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->MATCH (a:Article)
+RETURN a
+ORDER BY a.published DESC
+LIMIT 10<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Querying With Cypher: Graph Patterns</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>We can define more complex graph patterns. Let&#8217;s also include topics of articles:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->MATCH (a:Article)-[:HAS_TOPIC]-&gt;(t:Topic)
+RETURN *
+ORDER BY a.published DESC
+LIMIT 25<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Querying With Cypher: More Graph Patterns</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>Cypher pattern matching allows us to define complex graph patterns to search for in the graph:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->MATCH (a:Article)-[:HAS_TOPIC]-&gt;(t:Topic)
+RETURN *
+ORDER BY a.published DESC
+LIMIT 25<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Shortest Path &amp; Variable Length Paths</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>Cypher has a number of features built for working with graph data. Here we look at <em>variable length paths</em> and finding the shortest path between two nodes in the graph.</p>
+</div>
+<div class="paragraph">
+<p>What&#8217;s the shortest path from "Cheese" to "Social Media"?</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->MATCH
+p=shortestPath(
+    (:Topic {name: "Cheese"})-[*]-(:Organization {name: "TikTok (ByteDance)"})
+)
+RETURN p<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Exercise</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>For this exercise, we&#8217;re going to write an article recommendation query. Imagine a user is reading an article and wants to read other "similar" articles. Write a Cypher query to show similar articles to the user.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->MATCH (a:Article) WITH a LIMIT 1
+MATCH **TRAVERSE THE GRAPH TO FIND SIMILAR ARTICLES HERE**
+RETURN *<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+  </carousel>
+</article>

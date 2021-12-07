@@ -1,0 +1,137 @@
+= News Graph
+
+== News Graph
+
+This guide explores importing and querying data about popular New York Times Articles.
+
+* Importing data with `apoc.load.json`
+* Querying with Cypher
+* Exercise: Writing an article recommendation query
+
+Data from https://developer.nytimes.com/apis[NYTimes API]
+
+== LOAD JSON
+
+`LOAD JSON` is a Cypher feature that allows us to load data into Neo4j from JSON files. 
+
+It will parse a JSON file and yield an object that we can then manipulate using Cypher, typically describing the patterns we want to create in the graph. Let's take a look at our news data:
+
+[source,cypher]
+----
+CALL apoc.load.json("https://raw.githubusercontent.com/johnymontana/fullstack-graphql-neo4j-auradb-nextjs-vercel-workshop/main/data/news.json") YIELD value
+RETURN value
+----
+
+== Data Import
+
+Let's run this import script to load our news data, then we'll see how to query it using Cypher.
+
+[source,cypher]
+----
+CALL apoc.load.json("https://raw.githubusercontent.com/johnymontana/fullstack-graphql-neo4j-auradb-nextjs-vercel-workshop/main/data/news.json") YIELD value
+UNWIND value.results AS article
+  MERGE (a:Article {url: article.url})
+    SET a.title     = article.title,
+        a.abstract  = article.abstract,
+        a.published = datetime(article.published_date),
+        a.byline    = article.byline
+
+  FOREACH (desc IN article.des_facet | 
+    MERGE (d:Topic {name: desc})
+    MERGE (a)-[:HAS_TOPIC]->(d)
+  )
+
+  FOREACH (per IN article.per_facet |
+    MERGE (p:Person {name: per})
+    MERGE (a)-[:ABOUT_PERSON]->(p)
+  )
+
+  FOREACH (org IN article.org_facet |
+    MERGE (o:Organization {name: org})
+    MERGE (a)-[:ABOUT_ORGANIZATION]->(o)
+  )
+
+  FOREACH (geo IN article.geo_facet |
+    MERGE (g:Geo {name: geo})
+    MERGE (a)-[:ABOUT_GEO]->(g)
+  )
+
+  MERGE (p:Photo {url: coalesce(article.media[0]["media-metadata"][2].url, "NA")})
+    SET p.caption = article.media[0].caption
+  MERGE (a)-[:HAS_PHOTO]->(p)
+
+  WITH a, split(replace(substring(article.byline, 3), " and ", ","), ",") AS authors
+  UNWIND authors AS author
+    MERGE (auth:Author {name: trim(author)})
+    MERGE (a)-[:BYLINE]->(auth)
+RETURN *
+----
+
+== Querying With Cypher: MATCH
+
+The `MATCH` command allows us to search for graph patterns in the database using "ASCI-art" syntax. Here we define a simple graph pattern to search for all article nodes:
+
+[source,cypher]
+----
+MATCH (a:Article) RETURN a
+----
+
+We can use ordering, sorting, and limiting in Cypher (pagination):
+
+[source,cypher]
+----
+MATCH (a:Article) 
+RETURN a
+ORDER BY a.published DESC
+LIMIT 10
+----
+
+== Querying With Cypher: Graph Patterns
+
+We can define more complex graph patterns. Let's also include topics of articles:
+
+[source,cypher]
+----
+MATCH (a:Article)-[:HAS_TOPIC]->(t:Topic)
+RETURN *
+ORDER BY a.published DESC
+LIMIT 25
+----
+
+== Querying With Cypher: More Graph Patterns
+
+Cypher pattern matching allows us to define complex graph patterns to search for in the graph:
+
+[source,cypher]
+----
+MATCH (a:Article)-[:HAS_TOPIC]->(t:Topic)
+RETURN *
+ORDER BY a.published DESC
+LIMIT 25
+----
+
+== Shortest Path & Variable Length Paths
+
+Cypher has a number of features built for working with graph data. Here we look at _variable length paths_ and finding the shortest path between two nodes in the graph.
+
+What's the shortest path from "Cheese" to "Social Media"?
+
+[source,cypher]
+----
+MATCH 
+p=shortestPath(
+    (:Topic {name: "Cheese"})-[*]-(:Organization {name: "TikTok (ByteDance)"})
+)
+RETURN p
+----
+
+== Exercise
+
+For this exercise, we're going to write an article recommendation query. Imagine a user is reading an article and wants to read other "similar" articles. Write a Cypher query to show similar articles to the user.
+
+[source,cypher]
+----
+MATCH (a:Article) WITH a LIMIT 1
+MATCH **TRAVERSE THE GRAPH TO FIND SIMILAR ARTICLES HERE**
+RETURN *
+----
