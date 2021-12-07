@@ -63,3 +63,5 @@ See the [/graphql](/graphql) directory for the GraphQL API code.
 ## Cloudflare Workers
 
 See the [/workers](/workers) directory for location-aware news recommendations using Cloudflare Workers and Neo4j, deployed at `https://workers.graphstuff.workers.dev/`.
+
+* **[Improving News Recommendations With Knowledge Graphs & Cloudflare Workers](https://dev.neo4j.com/news-graph)** - presented at Cloudflare's Full Stack Week, Nov 2021 ([Video](https://dev.neo4j.com/3osz6TW), [Slides](https://dev.neo4j.com/news-graph))
