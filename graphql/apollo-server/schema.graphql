@@ -57,13 +57,9 @@ extend type Article {
   similar(first: Int = 3): [Article]
     @cypher(
       statement: """
-      MATCH (this)-[:HAS_TOPIC]->(t:Topic)
-      WITH this, COLLECT(id(t)) AS t1
-      MATCH (a:Article)-[:HAS_TOPIC]->(t:Topic) WHERE a <> this
-      WITH this, a, t1, COLLECT(id(t)) AS t2
-      WITH a, gds.alpha.similarity.jaccard(t1, t2) AS jaccard
-      ORDER BY jaccard DESC
-      RETURN a LIMIT toInteger($first)
+      MATCH (this)-[:HAS_TOPIC|:ABOUT_GEO|:ABOUT_PERSON]->(t)
+      MATCH (t)<-[:HAS_TOPIC|:ABOUT_GEO|:ABOUT_PERSON]-(rec:Article)
+      RETURN rec ORDER BY COUNT(*) DESC LIMIT $first
       """
     )
 }
