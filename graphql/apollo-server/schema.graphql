@@ -59,7 +59,8 @@ extend type Article {
       statement: """
       MATCH (this)-[:HAS_TOPIC|:ABOUT_GEO|:ABOUT_PERSON]->(t)
       MATCH (t)<-[:HAS_TOPIC|:ABOUT_GEO|:ABOUT_PERSON]-(rec:Article)
-      RETURN rec ORDER BY COUNT(*) DESC LIMIT $first
+      WITH rec, COUNT(*) AS score ORDER BY score DESC LIMIT $first
+      RETURN rec
       """
     )
 }
